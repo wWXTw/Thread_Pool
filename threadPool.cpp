@@ -67,7 +67,7 @@ void ThreadPool::controlThread() {
 		// 如果队列中任务数大于当前总线程数且当前总线程数没有达到阈值则增加线程
 		if (total_threads < max_threads && buffer.size() > total_threads) {
 			total_threads++;
-			pool.emplace_back([this]() {return task(); });
+			pool.emplace_back([this]() { task(); });
 		}
 	}
 }
