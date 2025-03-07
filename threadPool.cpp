@@ -1,9 +1,10 @@
 #include "threadPool.h"
 
-ThreadPool::ThreadPool(int nums) :isStop(false), min_threads(nums), max_threads(2*nums) {
-	for (int i = 0; i < nums; i++) {
+ThreadPool::ThreadPool(int nums) :isStop(false), min_threads(nums), max_threads(2*nums), total_threads(nums) {
+	for (int i = 0; i < min_threads; i++) {
 		pool.emplace_back([this]() {task(); });
 	}
+	pool.emplace_back([this]() {controlThread(); });
 }
 
 ThreadPool::~ThreadPool() {
@@ -25,10 +26,13 @@ ThreadPool::~ThreadPool() {
 
 void ThreadPool::task() {
 	while (true) {
-		// 任务队列为空且不为最小线程数则动态关闭当前线程
-		if (buffer.empty() && total_threads > min_threads) {
-			total_threads--;
-			return;
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			// 任务队列为空且不为最小线程数则动态关闭当前线程
+			if (buffer.empty() && total_threads > min_threads) {
+				total_threads--;
+				return;
+			}
 		}
 
 		// 定义任务
@@ -48,24 +52,22 @@ void ThreadPool::task() {
 			std::cout << "Executing task with priority: "
 				<< static_cast<int>(this->buffer.top().priority) << std::endl;
 			this->buffer.pop();
-			// 活跃线程数加一
-			active_threads++;
 		}
 
 		// 执行任务
 		task();
-
-		// 活跃线程数减一
-		active_threads--;
 	}
 }
 
 void ThreadPool::controlThread() {
-	// 每1秒检查一次
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-	// 如果队列中任务数大于当前总线程数且当前总线程数没有达到阈值则增加线程
-	if (total_threads < max_threads && buffer.size() > total_threads) {
-		total_threads++;
-		pool.emplace_back([this]() {return task(); });
+	// 每10豪秒检查一次
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	{
+		std::unique_lock<std::mutex> lock(mtx);
+		// 如果队列中任务数大于当前总线程数且当前总线程数没有达到阈值则增加线程
+		if (total_threads < max_threads && buffer.size() > total_threads) {
+			total_threads++;
+			pool.emplace_back([this]() {return task(); });
+		}
 	}
 }

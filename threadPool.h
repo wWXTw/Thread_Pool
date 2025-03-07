@@ -46,8 +46,6 @@ private:
 	const int min_threads;
 	// 最大线程数
 	const int max_threads;
-	// 当前活跃线程数
-	std::atomic<int> active_threads;
 	// 当前线程数
 	std::atomic<int> total_threads;
 	// 表示当前线程池是不是停止
